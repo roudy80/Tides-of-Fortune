@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Tides of Fortune</title>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-analytics.js"></script>
+    
     <style>
         * {
     margin: 0;
@@ -2135,10 +2139,14 @@ button:disabled {
         this.contextHistory = [];
         
         this.showLoadingScreen();
+        this.initializeGame();
     }
 
 showLoadingScreen() {
     console.log('Loading screen started');
+    
+    // Store reference to avoid 'this' context issues in minification
+    const game = this;
     
     // Check if mobile device
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -2146,31 +2154,59 @@ showLoadingScreen() {
     if (isMobile) {
         console.log('Mobile detected - quick loading');
         // Very short delay for mobile, multiple fallbacks
-        setTimeout(() => this.hideLoadingScreen(), 100);
-        setTimeout(() => this.hideLoadingScreen(), 500);
-        setTimeout(() => this.hideLoadingScreen(), 1000);
+        setTimeout(function() { game.hideLoadingScreen(); }, 100);
+        setTimeout(function() { game.hideLoadingScreen(); }, 500);
+        setTimeout(function() { game.hideLoadingScreen(); }, 1000);
     } else {
         // Normal loading for desktop
         const loadingTime = 2000 + Math.random() * 2000;
-        setTimeout(() => this.hideLoadingScreen(), loadingTime);
+        setTimeout(function() { game.hideLoadingScreen(); }, loadingTime);
     }
 }
 
-    initializeGame() {
-        this.bindEvents();
-        this.showScreen('titleScreen');
+
+
+  hideLoadingScreen() {
+    const loadingScreen = document.getElementById('loadingScreen');
+    const gameContainer = document.getElementById('gameContainer');
+    
+    if (loadingScreen) {
+        loadingScreen.style.display = 'none';
     }
+    
+    if (gameContainer) {
+        gameContainer.style.display = 'block';
+    }
+    
+    console.log('Loading screen hidden, game container shown');
+}
+            
+
+    initializeGame() {
+    console.log('initializeGame method called');
+    this.bindEvents();
+    this.showScreen('titleScreen');
+    console.log('initializeGame completed');
+}
 
     bindEvents() {
-        document.getElementById('newGameBtn').addEventListener('click', () => {
+    console.log('bindEvents method called');
+    const newGameBtn = document.getElementById('newGameBtn');
+    console.log('newGameBtn element:', newGameBtn);
+    
+    if (newGameBtn) {
+        newGameBtn.addEventListener('click', () => {
+            console.log('New Game button clicked - event listener working');
             this.startNewGame();
         });
-
-        document.getElementById('loadGameBtn').addEventListener('click', () => {
-    this.showLoadSlotMenu();
-});
-        
+    } else {
+        console.error('newGameBtn element not found!');
     }
+    
+    document.getElementById('loadGameBtn').addEventListener('click', () => {
+        this.showLoadSlotMenu();
+    });
+}
 
     showScreen(screenId) {
         // Hide all screens
@@ -2185,8 +2221,10 @@ showLoadingScreen() {
         targetScreen.classList.add('active');
     }
 
-    startNewGame() {
+   startNewGame() {
+    console.log('startNewGame method called');
     this.showScreen('gameScreen');
+    console.log('Switched to game screen');
     
     // Initialize character data
     this.characterData = {
@@ -2208,13 +2246,16 @@ showLoadingScreen() {
             pirate: 0
         }
     };
-
+       this.gameState.totalDays = 0;
+    console.log('Character data initialized');
     this.currentCreationStep = 'name';
     this.setupCharacterCreationEvents();
+    console.log('Character creation events setup');
     
     // Show character creation screen
     document.getElementById('characterCreation').classList.remove('hidden');
     document.getElementById('mainGame').classList.add('hidden');
+    console.log('Character creation screen should now be visible');
 }
 
 
@@ -2812,8 +2853,13 @@ applyTraitBonuses() {
 
 startMainGame() {
     this.updateDisplay();
-    this.initializeTrading();         this.initializeMainGameEvents();
+    this.initializeTrading();         
     console.log('Main game started with character:', this.characterData);
+trackGameEvent('character_created', {
+    background: this.characterData.background,
+    starting_money: this.characterData.stats.money
+});
+        
 }
 
 updateDisplay() {
@@ -3671,6 +3717,7 @@ buyProperty(propertyType, propertyName, price) {
         
         // Social reputation bonus for homeownership
         this.characterData.reputation.merchant += 1;
+        
         this.characterData.stats.social += 0.5;
         
         this.showActivityResult('🎉 Property Purchased!', 
@@ -7952,6 +7999,8 @@ getNavalRankFromExperience(experience) {
     
 // Character Sheet Functions
 showCharacterSheet() {
+    console.log('About to show character creation');
+    console.log('Character creation method called');
     this.updateCharacterSheetContent();
     document.getElementById('characterSheet').classList.remove('hidden');
 }
@@ -9117,6 +9166,14 @@ sellGood(good, price, source) {
     }
     
     this.characterData.stats.trading += 0.05;
+    trackGameEvent('trade_completed', {
+    action: 'sell',
+    good_type: good,
+    quantity: 1,
+    price_per_unit: price,
+    total_value: price,
+    source: source
+});
     
     setTimeout(() => {
         this.visitMarket();
@@ -9141,6 +9198,14 @@ sellAllGood(good, price, source) {
     const totalEarnings = quantity * price;
     this.characterData.stats.money += totalEarnings;
     this.characterData.stats.trading += 0.05 * quantity;
+    trackGameEvent('trade_completed', {
+    action: 'sell_all',
+    good_type: good,
+    quantity: quantity,
+    price_per_unit: price,
+    total_value: totalEarnings,
+    source: source
+});
     
     const goodName = this.goodsInfo[good].name;
     this.showActivityResult('💰 Bulk Sale Complete',
@@ -9428,6 +9493,12 @@ if (!this.gameState.ownedShip) {
             '<em>+1 Social reputation (ship owners are respected!)</em>');
         
         this.characterData.reputation.merchant += 1;
+        trackGameEvent('ship_purchased', {
+    ship_type: shipId,
+    ship_name: finalShipName,
+    price: price,
+    player_money_remaining: this.characterData.stats.money
+});
         
         setTimeout(() => {
             this.visitShipyard();
@@ -9697,6 +9768,11 @@ manageSpecificShip(shipIndex) {
 startAutomatedMission(shipIndex, missionType, duration) {
     const ship = this.gameState.ownedShips[shipIndex];
     const captain = ship.captain;
+    console.log('Debug mission start values:');
+console.log('totalDays:', this.gameState.totalDays);
+console.log('duration:', duration);
+console.log('shipIndex:', shipIndex);
+console.log('missionType:', missionType);
     
     // Set up the automated mission
     ship.automatedMission = {
@@ -9705,6 +9781,9 @@ startAutomatedMission(shipIndex, missionType, duration) {
         duration: duration,
         endDate: this.gameState.totalDays + duration
     };
+console.log('Mission created:', ship.automatedMission);
+
+        
     
     // Captain is now busy
     captain.status = 'on_mission';
@@ -9875,6 +9954,16 @@ if (captain.specialty === mission.type) {
 resultText += `<br><em>Your ship is now available for new missions.</em>`;
 
 // Return the mission results instead of showing them immediately
+    trackGameEvent('mission_completed', {
+    mission_type: mission.type,
+    ship_name: ship.shipName,
+    captain_name: captain.name,
+    duration_days: mission.duration,
+    profit_earned: totalProfit,
+    mission_success: missionSuccess,
+    specialty_bonus: captain.specialty === mission.type,
+    complications_count: complications.length
+});
 return {
     shipName: ship.shipName,
     captainName: captain.name,
@@ -12050,6 +12139,38 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
     </script>
+
+<script>
+// Firebase Configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyD6bJC0uBWIRYSmk6Td-iBxG4OuV7UldgU",
+  authDomain: "tides-of-fortune.firebaseapp.com",
+  projectId: "tides-of-fortune",
+  storageBucket: "tides-of-fortune.firebasestorage.app",
+  messagingSenderId: "970834608669",
+  appId: "1:970834608669:web:d590e957504e4382bdfcf4",
+  measurementId: "G-EDLXEW8645"
+};
+
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const analytics = firebase.analytics();
+
+console.log('Firebase Analytics initialized');
+// Game Analytics Helper Function
+window.trackGameEvent = function(eventName, parameters = {}) {
+  if (analytics) {
+    analytics.logEvent(eventName, parameters);
+  }
+  console.log('Analytics Event:', eventName, parameters);
+};
+
+// Track game start
+trackGameEvent('game_loaded');
+
+    
+</script>
+            
         
 <script>
 // Mobile-friendly testing background unlock
