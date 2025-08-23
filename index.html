@@ -2138,32 +2138,22 @@ button:disabled {
     }
 
 showLoadingScreen() {
-    // Simulate loading time (2-4 seconds)
-    const loadingTime = 2000 + Math.random() * 2000;
+    console.log('Loading screen started');
     
-    setTimeout(() => {
-        this.hideLoadingScreen();
-    }, loadingTime);
-}
-
-hideLoadingScreen() {
-    const loadingScreen = document.getElementById('loadingScreen');
-    loadingScreen.classList.add('fade-out');
+    // Check if mobile device
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     
-    // Shorter timeout for mobile + fallback
-    setTimeout(() => {
-        loadingScreen.style.display = 'none';
-        this.initializeGame();
-    }, 500);
-    
-    // Fallback for mobile - force initialization if CSS animations fail
-    setTimeout(() => {
-        if (loadingScreen.style.display !== 'none') {
-            console.log('Loading screen fallback triggered');
-            loadingScreen.style.display = 'none';
-            this.initializeGame();
-        }
-    }, 2000);
+    if (isMobile) {
+        console.log('Mobile detected - quick loading');
+        // Very short delay for mobile, multiple fallbacks
+        setTimeout(() => this.hideLoadingScreen(), 100);
+        setTimeout(() => this.hideLoadingScreen(), 500);
+        setTimeout(() => this.hideLoadingScreen(), 1000);
+    } else {
+        // Normal loading for desktop
+        const loadingTime = 2000 + Math.random() * 2000;
+        setTimeout(() => this.hideLoadingScreen(), loadingTime);
+    }
 }
 
     initializeGame() {
