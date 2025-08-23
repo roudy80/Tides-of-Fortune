@@ -5175,6 +5175,9 @@ if (forceSuccess !== null) {
     this.displayMissionResults(mission, forceSuccess);
     return;
 }
+
+// Clear any stuck combat processing flags
+this.processingCombatAction = false;
     
     // Calculate success based on player skills and mission difficulty
     let successChance = 0.7; // Base 70% success rate
@@ -5543,6 +5546,7 @@ navalMissionCombat(missionId) {
     this.enemyShip = null;
     
     console.log('Starting naval mission combat for:', missionId);
+    this.processingCombatAction = false; // Reset flag at mission start
     
     // Start the full pirate combat system
     this.hideEmergencyEvent();
@@ -9177,7 +9181,7 @@ sellGood(good, price, source) {
     
     setTimeout(() => {
         this.visitMarket();
-    }, 1000);
+    }, 5000);
 }
 
 sellAllGood(good, price, source) {
@@ -9213,7 +9217,7 @@ sellAllGood(good, price, source) {
     
     setTimeout(() => {
         this.visitMarket();
-    }, 1500);
+    }, 5000);
 }
     
 loadGameState() {
@@ -10594,9 +10598,9 @@ getLocationMarketPrices() {
             textiles: { buy: 10, sell: 8 },
             tools: { buy: 15, sell: 12 },
             weapons: { buy: 30, sell: 25 },
-            sugar: { buy: 20, sell: 15 },      // Expensive (imported)
-            tobacco: { buy: 25, sell: 20 },   // Expensive (imported)
-            rum: { buy: 22, sell: 18 }        // Expensive (imported)
+            sugar: { buy: 40, sell: 35 },      // Expensive (imported)
+        tobacco: { buy: 50, sell: 45 },   // Expensive (imported)
+        rum: { buy: 45, sell: 40 }        // Expensive (imported)
         };
     } else {
         // Colonial ports - expensive European goods, cheap colonial goods
