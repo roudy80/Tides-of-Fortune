@@ -4855,6 +4855,19 @@ if (naval.current_mission && (!this.gameState.ownedShip || this.gameState.ownedS
     // Player gets partial mission failure consequence
     naval.reputation = Math.max(0, naval.reputation - 2);
 }
+
+// General reset for any stuck naval missions (fixes old saves)
+if (naval.current_mission && naval.current_mission.status) {
+    // Check if mission has been stuck too long or is in invalid state
+    const timeSinceStart = (this.gameState.year - 1740) * 12 + this.gameState.month;
+    if (timeSinceStart > 50 || !naval.current_mission.duration) { // Arbitrary check for old stuck missions
+        console.log('Clearing stuck naval mission from old save');
+        naval.current_mission = null;
+        this.showEmergencyEvent('⚓ Mission Status Reset', 
+            'Your previous naval mission status has been cleared. You can now accept new missions.');
+    }
+}
+    
     let content = '<strong>⚔️ His Majesty\'s Naval Recruitment Office</strong><br><br>';
     
     if (!naval.enlisted) {
