@@ -5585,7 +5585,8 @@ genericMissionChoice(choice, missionId) {
             const bonus = Math.floor(mission.rewards.pay * 0.5);
             this.characterData.stats.money += bonus;
             this.gameState.navalCareer.reputation += 2;
-            
+
+            this.gameState.navalCareer.current_mission = null;
             this.showEmergencyEvent('🎉 Bold Success!', 
                 `Your aggressive tactics pay off handsomely!<br><br>` +
                 `<strong>Bonus Rewards:</strong><br>` +
@@ -5594,7 +5595,7 @@ genericMissionChoice(choice, missionId) {
                 `<em>"Outstanding initiative, officer!"</em>`);
         } else {
             this.gameState.navalCareer.reputation -= 1;
-            this.showEmergencyEvent('⚠️ Risky Gamble Failed', 
+            this.gameState.navalCareer.current_mission = null;            this.showEmergencyEvent('⚠️ Risky Gamble Failed', 
                 `Your bold approach backfires and causes complications.<br><br>` +
                 `<strong>Setback:</strong><br>` +
                 `• -1 Naval reputation<br>` +
