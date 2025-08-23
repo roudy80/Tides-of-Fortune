@@ -4869,6 +4869,22 @@ if (naval.current_mission && naval.current_mission.status) {
 }
     
     let content = '<strong>⚔️ His Majesty\'s Naval Recruitment Office</strong><br><br>';
+
+
+// EMERGENCY RESET - Remove after testing
+if (naval.current_mission) {
+    console.log('Found stuck mission, forcing clear:', naval.current_mission);
+    naval.current_mission = null;
+    this.processingCombatAction = false;
+    this.isNavalMissionCombat = false;
+    this.currentNavalMission = null;
+    
+    content += '<div style="background: #f8d7da; padding: 10px; margin: 10px 0; border: 2px solid #dc3545; border-radius: 8px;">';
+    content += '<strong>⚠️ MISSION RESET APPLIED</strong><br>';
+    content += 'Your stuck naval mission has been cleared. You can now accept new missions.';
+    content += '</div><br>';
+}
+    
     
     if (!naval.enlisted) {
         // Not in the Navy yet - recruitment
