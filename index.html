@@ -6211,6 +6211,14 @@ this.tempNavBonus = navBonus; // Store the navBonus for later use
     this.gameState.ownedShip.condition = Math.max(0, this.gameState.ownedShip.condition);
 }
     
+    // Prevent negative money - should be caught by UI but adding safety check
+    if (this.characterData.stats.money < finalCost) {
+        this.showEmergencyEvent('⚠️ Insufficient Funds',
+            `You don't have enough gold to travel!<br><br>` +
+            `Required: ${finalCost} gold<br>` +
+            `Available: ${this.characterData.stats.money} gold`);
+        return;
+    }
     this.characterData.stats.money -= finalCost;
     this.gameState.currentLocation = destinationId;
     console.log('About to advance time by', finalDays, 'days');
@@ -7665,8 +7673,9 @@ executeEnemyAction(action) {
 enemyCannonAttack() {
     const combat = this.combatState;
     const enemy = this.enemyShip;
-    
-    const damage = Math.floor(enemy.combat * (0.6 + Math.random() * 0.4));
+
+    // Buffed enemy damage: 0.8-1.3 multiplier (was 0.6-1.0)
+    const damage = Math.floor(enemy.combat * (0.8 + Math.random() * 0.5));
     let finalDamage = damage;
     
     // Check if player is defending
@@ -7736,7 +7745,7 @@ enemyPointBlank() {
     const combat = this.combatState;
     const enemy = this.enemyShip;
     
-    const damage = Math.floor(enemy.combat * 1.4); // 40% bonus at point blank
+    const damage = Math.floor(enemy.combat * 1.6); // 60% bonus at point blank (was 40%)
     combat.playerHull -= damage;
     
     return `<strong>💀 Enemy Point-Blank Fire!</strong><br><br>` +
@@ -7748,14 +7757,23 @@ enemyPointBlank() {
 enemyBoardingAttack() {
     const combat = this.combatState;
     const enemy = this.enemyShip;
-    
-    const damage = Math.floor(Math.random() * 20) + 10;
+
+    let damage = Math.floor(Math.random() * 20) + 10;
+    let defenseMsg = '';
+
+    // Check if player is defending (40% damage reduction)
+    if (combat.playerDefending) {
+        damage = Math.floor(damage * 0.6);
+        combat.playerDefending = false;
+        defenseMsg = `<br><em>Your defensive stance reduced damage!</em>`;
+    }
+
     combat.playerHull -= damage;
-    
+
     return `<strong>⚔️ Pirates Board Your Ship!</strong><br><br>` +
            `"Take no prisoners!" Cutlass-wielding pirates swarm aboard!<br><br>` +
            `<strong>Fierce hand-to-hand combat!</strong><br>` +
-           `Your ship takes ${damage} damage in the melee!`;
+           `Your ship takes ${damage} damage in the melee!${defenseMsg}`;
 }
 
 enemyDesperateAttack() {
@@ -7857,8 +7875,47 @@ endCombat(result, message) {
                   `Your superior seamanship saves the day.<br><br>` +
                   `<em>Sometimes discretion is the better part of valor.</em>`;
         this.characterData.stats.navigation += 0.2;
+    } else if (result === 'surrender') {
+        // Pirates surrendered - give rewards (slightly less than full victory)
+        const treasure = Math.floor(Math.random() * 200) + 150;
+        this.characterData.stats.money += treasure;
+
+        this.characterData.reputation.pirate -= 3; // Pirates really fear you
+        this.characterData.reputation.crown += 2; // Crown loves a bloodless victory
+        this.characterData.stats.leadership += 0.5; // Strong leadership shown
+
+        // Minimal ship damage since they surrendered
+        const battleDamage = Math.floor(Math.random() * 5) + 2;
+        this.gameState.ownedShip.condition -= battleDamage;
+        this.gameState.ownedShip.condition = Math.max(0, this.gameState.ownedShip.condition);
+
+        // Give crew experience for intimidation victory
+        const expGains = this.giveCrewExperience('combat', 15);
+
+        content += `<strong>🏳️ Enemy Surrendered!</strong><br><br>` +
+                  `The pirates surrender to your superior force!<br><br>` +
+                  `<strong>Spoils of War:</strong><br>` +
+                  `• ${treasure} gold from surrendered pirates<br>` +
+                  `• +0.5 Leadership skill<br>` +
+                  `• +2 Crown reputation (bloodless victory)<br>` +
+                  `• -3 Pirate reputation (they fear you)<br><br>`;
+
+        if (expGains && expGains.length > 0) {
+            content += `<strong>🌟 Crew Experience:</strong><br>`;
+            expGains.forEach(gain => {
+                content += `• ${gain}<br>`;
+            });
+            content += `<br>`;
+        }
+
+        content += `<strong>Ship Status:</strong><br>` +
+                  `• Ship condition: ${this.gameState.ownedShip.condition}% (minimal damage)<br><br>` +
+                  `<em>Your reputation alone was enough to win!</em>`;
     }
     
+    // Save combat result for naval missions BEFORE clearing state
+    this.lastCombatVictory = this.combatState && this.combatState.playerHull > 0;
+
     // Clear combat state and processing flags
 this.combatState = null;
 this.enemyShip = null;
@@ -7894,8 +7951,8 @@ completeNavalMissionCombat() {
     if (this.isNavalMissionCombat && this.currentNavalMission) {
         const mission = this.getAllNavalMissions().find(m => m.id === this.currentNavalMission);
         if (mission) {
-            // Determine success based on combat result
-            const missionSuccess = this.combatState && this.combatState.playerHull > 0;
+            // Determine success based on combat result (saved before state was cleared)
+            const missionSuccess = this.lastCombatVictory === true;
             
             // Clear flags BEFORE showing results
             this.isNavalMissionCombat = false;
@@ -11636,8 +11693,8 @@ checkCrewDeaths(eventType, baseDangerLevel) {
     
     // Check if we have a surgeon
     const hasSurgeon = ship.namedCrew.some(member => member.specialty === 'surgeon');
-    const surgeonSkill = hasSurgeon ? 
-        ship.namedCrew.find(member => member.specialty === 'surgeon').skills.medicine : 0;
+    const surgeon = hasSurgeon ? ship.namedCrew.find(member => member.specialty === 'surgeon') : null;
+    const surgeonSkill = (surgeon && surgeon.skills && surgeon.skills.medicine) ? surgeon.skills.medicine : 0;
     
     // Calculate death chance based on event type and medical care
     let deathChance = baseDangerLevel;
@@ -11675,7 +11732,7 @@ checkCrewDeaths(eventType, baseDangerLevel) {
     
     // Surviving crew lose loyalty from witnessing deaths
     if (casualties.length > 0) {
-        const loyaltyLoss = casualties.length * 8; // 8 loyalty per death
+        const loyaltyLoss = casualties.length * 4; // 4 loyalty per death (was 8 - too punishing)
         ship.namedCrew.forEach(survivor => {
             survivor.loyalty = Math.max(0, survivor.loyalty - loyaltyLoss);
         });
@@ -11696,7 +11753,7 @@ getDeathReport(casualties, eventType, hasSurgeon) {
     
     report += `<br><strong>Impact:</strong><br>`;
     report += `• ${casualties.length} crew member(s) lost<br>`;
-    report += `• Surviving crew morale drops (-${casualties.length * 8} loyalty)<br>`;
+    report += `• Surviving crew morale drops (-${casualties.length * 4} loyalty)<br>`;
     
     if (!hasSurgeon && casualties.length > 0) {
         report += `<br><em style="color: #ffcdd2;">⚕️ A ship's surgeon could have saved some of these lives...</em>`;
